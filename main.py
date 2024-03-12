@@ -21,7 +21,7 @@ from selenium.webdriver.chrome.options import Options
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 }
-SEARCH_STRING = "adult store mykolayiv"
+SEARCH_STRING = "adult store macau" "" "  "
 BASE_URL = "https://www.google.com/maps"
 
 # Logging config
@@ -35,6 +35,7 @@ logging.basicConfig(
 )
 
 
+# Selenium singleton
 class WebDriverSingleton:
     instance: Optional[webdriver.Chrome] = None
     options: Options = Options()
