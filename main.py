@@ -1,4 +1,5 @@
 import csv
+import sys
 import time
 from dataclasses import dataclass, fields, astuple
 
@@ -8,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 
+from tqdm import tqdm
 from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
@@ -19,8 +21,18 @@ from selenium.webdriver.chrome.options import Options
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 }
-SEARCH_STRING = "grocery store macau"
+SEARCH_STRING = "adult store mykolayiv"
 BASE_URL = "https://www.google.com/maps"
+
+# Logging config
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)8s]: %(message)s",
+    handlers=[
+        logging.FileHandler("parser.log"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
 
 
 class WebDriverSingleton:
@@ -31,7 +43,7 @@ class WebDriverSingleton:
     def get_instance(cls) -> webdriver.Chrome:
         if cls.instance is None:
             cls.options.add_argument("--window-size=1200x600")
-            #  cls.options.add_argument("--headless")
+            cls.options.add_argument("--headless")
             cls.instance = webdriver.Chrome(options=cls.options)
 
         return cls.instance
@@ -59,14 +71,17 @@ def get_urls_for_places() -> [str]:
     time.sleep(5)
 
     result_element = driver.find_element(By.CLASS_NAME, "fontTitleLarge")
-    print(result_element.text)
     webdriver.ActionChains(driver).move_to_element(result_element).click().perform()
-    counter = 0
 
-    while counter <= 10:
-        webdriver.ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
-        time.sleep(1)
-        counter += 1
+    end_of_list = None
+    while not end_of_list:
+        try:
+            end_of_list = driver.find_element(
+                By.XPATH, "//div[contains(@class, ' ')]/div/p/span/span"
+            )
+        except NoSuchElementException:
+            webdriver.ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
+            time.sleep(2)
 
     href_blocks = driver.find_elements(By.XPATH, "//a[@aria-label]")[1:-1]
 
@@ -87,7 +102,12 @@ def get_category() -> str:
 def get_name() -> str:
     driver = WebDriverSingleton.get_instance()
 
-    return driver.find_element(By.XPATH, "//h1").text
+    try:
+        name = driver.find_element(By.XPATH, "//h1").text
+    except NoSuchElementException as e:
+        name = "Unknown"
+
+    return name
 
 
 def get_address_with_regex(info: str) -> str:
@@ -110,7 +130,9 @@ def get_website() -> str:
     driver = WebDriverSingleton.get_instance()
 
     try:
-        website = driver.find_element(By.XPATH, "//a[@data-item-id='authority']").text
+        website = driver.find_element(
+            By.XPATH, "//a[@data-item-id='authority']"
+        ).get_attribute("href")
     except NoSuchElementException as e:
         website = "Unknown"
 
@@ -148,7 +170,7 @@ def parse_single_instance(url: str) -> Store:
 
 
 def csv_output(stores: [Store], csv_name: str) -> None:
-    filename = csv_name + ".csv"
+    filename = f"{csv_name}-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"
 
     with open(filename, "w") as file:
         writer = csv.writer(file)
@@ -167,7 +189,8 @@ if __name__ == "__main__":
 
     with chrome_driver as session:
         urls = get_urls_for_places()
-        for url in urls:
+        for url in tqdm(urls, desc="Processing"):
+            time.sleep(2)
             results.append(parse_single_instance(url))
 
     csv_output(results, csv_name)

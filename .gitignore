@@ -1,4 +1,6 @@
 .idea
 .venv
+*.csv
+*.log
 pyacache
 pyproject.toml
